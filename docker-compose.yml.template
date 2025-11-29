@@ -1,0 +1,39 @@
+services:
+  zoneminder:
+    image: zoneminderhq/zoneminder:latest-ubuntu18.04
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - PUID=2004
+      - PGID=2004
+    volumes:
+      - /home/zoneminder/storage/data:/var/cache/zoneminder
+      - /home/zoneminder/storage/events:/var/cache/zoneminder/events
+      - /home/zoneminder/storage/images:/var/cache/zoneminder/images
+      - /home/zoneminder/storage/logs:/var/log/zm
+      - zoneminder_db:/var/lib/mysql
+    shm_size: 2gb
+
+  nginx:
+    image: nginx:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /home/zoneminder/app/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /home/zoneminder/storage/ssl:/etc/nginx/ssl:ro
+      - /home/zoneminder/storage/certbot:/var/www/certbot:ro
+    depends_on:
+      - zoneminder
+
+  certbot:
+    image: certbot/certbot:latest
+    restart: no
+    volumes:
+      - /home/zoneminder/storage/ssl:/etc/letsencrypt
+      - /home/zoneminder/storage/certbot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  zoneminder_db:
