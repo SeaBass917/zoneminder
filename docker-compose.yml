@@ -1,0 +1,22 @@
+services:
+  zoneminder:
+    image: zoneminderhq/zoneminder:latest-ubuntu18.04
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - PUID=${USER_UID}
+      - PGID=${USER_GID}
+    ports:
+      # If https is handled at the ingress layer, we just need 80 internally.
+      # Otherwise consider changing this to 443 and adding a volume for SSL certs.
+      - "${IP_APPR:-0.0.0.0}:80:80"
+    volumes:
+      - /home/zoneminder/storage/data:/var/cache/zoneminder
+      - /home/zoneminder/storage/events:/var/cache/zoneminder/events
+      - /home/zoneminder/storage/images:/var/cache/zoneminder/images
+      - /home/zoneminder/storage/logs:/var/log/zm
+      - zoneminder_db:/var/lib/mysql
+    shm_size: 2gb
+
+volumes:
+  zoneminder_db:
