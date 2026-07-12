@@ -2,21 +2,39 @@ services:
   zoneminder:
     image: zoneminderhq/zoneminder:latest-ubuntu18.04
     restart: unless-stopped
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
     environment:
       - TZ=${TZ}
       - PUID=${USER_UID}
       - PGID=${USER_GID}
-    ports:
-      # If https is handled at the ingress layer, we just need 80 internally.
-      # Otherwise consider changing this to 443 and adding a volume for SSL certs.
-      - "${IP_APPR:-0.0.0.0}:80:80"
+    networks:
+      zm_physical_net:
+        ipv4_address: ${IP_APPR:-0.0.0.0}
+      seaserver_dmz:
     volumes:
-      - /home/zoneminder/storage/data:/var/cache/zoneminder
-      - /home/zoneminder/storage/events:/var/cache/zoneminder/events
-      - /home/zoneminder/storage/images:/var/cache/zoneminder/images
-      - /home/zoneminder/storage/logs:/var/log/zm
       - zoneminder_db:/var/lib/mysql
+      - zoneminder_logs:/var/log/zm
+      # Mount a local script into the container's entrypoint initialization path
+      - ./mount-nfs.sh:/etc/my_init.d/01_mount_nfs.sh:ro
     shm_size: 2gb
 
 volumes:
   zoneminder_db:
+  zoneminder_logs:
+
+networks:
+  zm_physical_net:
+    driver: macvlan
+    driver_opts:
+      parent: ${NTWK_NAME}
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
+          gateway: 192.168.1.1
+  seaserver_dmz:
+    external: true
+    name: seaserver_dmz
+  
